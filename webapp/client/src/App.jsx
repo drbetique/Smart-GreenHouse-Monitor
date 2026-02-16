@@ -1,10 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LangProvider, useLang } from "./context/LangContext";
+import LangToggle from "./components/LangToggle";
 import LoginPage from "./pages/Login";
+import UserManagement from "./pages/UserManagement";
+import Dashboard from './pages/Dashboard';
 
-// The dashboard and user management are loaded as-is
-// Your existing greenhouse-dashboard.jsx becomes the main dashboard view
-// Import it once you move it to src/pages/Dashboard.jsx
+
 
 function ProtectedRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
@@ -51,9 +53,10 @@ function AuthRoute({ children }) {
   return children;
 }
 
-// Placeholder until you move your dashboard file
+// Placeholder until dashboard is connected
 function DashboardPlaceholder() {
   const { user, logout, isAdmin } = useAuth();
+  const { t } = useLang();
   return (
     <div style={{
       minHeight: "100vh", padding: 20,
@@ -61,10 +64,11 @@ function DashboardPlaceholder() {
       color: "#e2e8f0", fontFamily: "'DM Sans', sans-serif",
     }}>
       <div style={{ maxWidth: 800, margin: "40px auto", textAlign: "center" }}>
+        <div style={{ position: "absolute", top: 20, right: 20 }}><LangToggle /></div>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🌿</div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Dashboard Ready</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{t("dashboard")}</h1>
         <p style={{ color: "#64748b", marginBottom: 24 }}>
-          Logged in as {user.name} ({user.email}) · Role: {user.role}
+          {t("loggedInAs")} {user.name} ({user.email}) · {t("users.role")}: {t(`role.${user.role}`)}
         </p>
         <p style={{ color: "#475569", fontSize: 13, marginBottom: 24, fontFamily: "'JetBrains Mono', monospace" }}>
           Move your greenhouse-dashboard.jsx to client/src/pages/Dashboard.jsx<br />
@@ -76,41 +80,22 @@ function DashboardPlaceholder() {
               padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.2)",
               background: "rgba(52,211,153,0.06)", color: "#34d399", fontSize: 13,
               fontWeight: 600, textDecoration: "none",
-            }}>User Management</a>
+            }}>{t("users.title")}</a>
           )}
           <button onClick={logout} style={{
             padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(239,68,68,0.2)",
             background: "rgba(239,68,68,0.06)", color: "#ef4444", fontSize: 13,
             fontWeight: 600, cursor: "pointer",
-          }}>Sign Out</button>
+          }}>{t("signout")}</button>
         </div>
       </div>
     </div>
   );
 }
 
-// Import these when ready:
-// import Dashboard from "./pages/Dashboard";
-import UserManagement from "./pages/UserManagement";
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
-          <Route path="/" element={<ProtectedRoute><DashboardPlaceholder /></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
-
-// Wrap UserManagement with layout
 function UserManagementPage() {
   const { user, logout } = useAuth();
+  const { t } = useLang();
   return (
     <div style={{
       minHeight: "100vh", padding: 20,
@@ -122,22 +107,40 @@ function UserManagementPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <a href="/" style={{ fontSize: 28, textDecoration: "none" }}>🌿</a>
             <div>
-              <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Greenhouse Monitor</h1>
-              <p style={{ fontSize: 10, color: "#3d6b5a", fontFamily: "'JetBrains Mono', monospace", margin: 0 }}>Admin Panel</p>
+              <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("dash.title")}</h1>
+              <p style={{ fontSize: 10, color: "#3d6b5a", fontFamily: "'JetBrains Mono', monospace", margin: 0 }}>{t("users.adminPanel")}</p>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <a href="/" style={{ color: "#34d399", fontSize: 12, textDecoration: "none" }}>← Dashboard</a>
+            <LangToggle />
+            <a href="/" style={{ color: "#34d399", fontSize: 12, textDecoration: "none" }}>{t("users.backToDash")}</a>
             <span style={{ color: "#334155" }}>|</span>
             <span style={{ fontSize: 11, color: "#64748b" }}>{user.name}</span>
             <button onClick={logout} style={{
               padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.2)",
               background: "transparent", color: "#ef4444", fontSize: 11, cursor: "pointer",
-            }}>Sign Out</button>
+            }}>{t("signout")}</button>
           </div>
         </div>
         <UserManagement />
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <LangProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<AuthRoute><LoginPage /></AuthRoute>} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute requiredRole="admin"><UserManagementPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </LangProvider>
+    </BrowserRouter>
   );
 }

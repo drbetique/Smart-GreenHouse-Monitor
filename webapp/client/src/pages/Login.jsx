@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LangContext";
+import LangToggle from "../components/LangToggle";
 
 const mono = "'JetBrains Mono', monospace";
 const sans = "'DM Sans', sans-serif";
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { t } = useLang();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -50,6 +53,11 @@ export default function LoginPage() {
 
       <div style={{ position: "fixed", top: "-30%", right: "-20%", width: "70vw", height: "70vw", background: "radial-gradient(circle, rgba(52,211,153,0.04) 0%, transparent 60%)", pointerEvents: "none" }} />
 
+      {/* Language toggle top-right */}
+      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 10 }}>
+        <LangToggle />
+      </div>
+
       <div style={{ width: "100%", maxWidth: 420, position: "relative", zIndex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{
@@ -59,10 +67,10 @@ export default function LoginPage() {
             boxShadow: "0 8px 32px rgba(16,185,129,0.25)",
           }}>🌿</div>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "#f1f5f9", fontFamily: sans, margin: 0, letterSpacing: -0.5 }}>
-            Greenhouse Monitor
+            {t("dash.title")}
           </h1>
           <p style={{ fontSize: 12, color: "#3d6b5a", fontFamily: mono, marginTop: 6, letterSpacing: 0.5 }}>
-            HAMK Lepaa · IoT Sensor Dashboard
+            {t("login.subtitle")}
           </p>
         </div>
 
@@ -71,21 +79,27 @@ export default function LoginPage() {
           border: "1px solid rgba(52,211,153,0.1)", borderRadius: 24, padding: 32,
           boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
         }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#cbd5e1", marginBottom: 24, textAlign: "center" }}>Sign In</h2>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#cbd5e1", marginBottom: 24, textAlign: "center" }}>
+            {t("login.title")}
+          </h2>
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 11, color: "#64748b", fontFamily: mono, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Email</label>
+              <label style={{ display: "block", fontSize: 11, color: "#64748b", fontFamily: mono, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                {t("login.email")}
+              </label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com" required style={inputStyle}
+                placeholder={t("login.placeholder.email")} required style={inputStyle}
                 onFocus={e => e.target.style.borderColor = "rgba(52,211,153,0.4)"}
                 onBlur={e => e.target.style.borderColor = "rgba(52,211,153,0.12)"} />
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontSize: 11, color: "#64748b", fontFamily: mono, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Password</label>
+              <label style={{ display: "block", fontSize: 11, color: "#64748b", fontFamily: mono, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                {t("login.password")}
+              </label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Enter your password" required style={inputStyle}
+                placeholder={t("login.placeholder.password")} required style={inputStyle}
                 onFocus={e => e.target.style.borderColor = "rgba(52,211,153,0.4)"}
                 onBlur={e => e.target.style.borderColor = "rgba(52,211,153,0.12)"} />
             </div>
@@ -105,7 +119,7 @@ export default function LoginPage() {
               fontFamily: sans, transition: "all 0.2s",
               boxShadow: loading ? "none" : "0 4px 16px rgba(16,185,129,0.25)",
             }}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? t("login.loading") : t("login.submit")}
             </button>
           </form>
         </div>
@@ -115,7 +129,7 @@ export default function LoginPage() {
           background: "rgba(6,30,22,0.4)", border: "1px solid rgba(52,211,153,0.06)",
           fontSize: 11, color: "#3d6b5a", fontFamily: mono, lineHeight: 1.6, textAlign: "center",
         }}>
-          Need an account? Contact your system administrator.
+          {t("login.needAccount")}
         </div>
       </div>
     </div>

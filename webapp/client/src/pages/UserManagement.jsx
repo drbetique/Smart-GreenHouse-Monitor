@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LangContext";
 import { api } from "../api";
 
 const mono = "'JetBrains Mono', monospace";
@@ -13,6 +14,7 @@ const roleBadge = {
 
 export default function UserManagement() {
   const { user: currentUser, isAdmin } = useAuth();
+  const { t } = useLang();
   const [users, setUsers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [newUser, setNewUser] = useState({ email: "", password: "", name: "", role: "viewer" });
@@ -40,7 +42,7 @@ export default function UserManagement() {
       await api.createUser(newUser.email, newUser.password, newUser.name, newUser.role);
       setNewUser({ email: "", password: "", name: "", role: "viewer" });
       setShowCreate(false);
-      setSuccess("User created");
+      setSuccess(t("users.created"));
       loadUsers();
     } catch (err) {
       setError(err.message);
@@ -51,7 +53,7 @@ export default function UserManagement() {
     setError(""); setSuccess("");
     try {
       await api.updateRole(userId, role);
-      setSuccess("Role updated");
+      setSuccess(t("users.roleUpdated"));
       loadUsers();
     } catch (err) {
       setError(err.message);
@@ -68,10 +70,10 @@ export default function UserManagement() {
   };
 
   const handleDelete = async (userId, email) => {
-    if (!confirm(`Delete user ${email}? This action is permanent.`)) return;
+    if (!confirm(t("users.confirmDelete").replace("{email}", email))) return;
     try {
       await api.deleteUser(userId);
-      setSuccess("User deleted");
+      setSuccess(t("users.deleted"));
       loadUsers();
     } catch (err) {
       setError(err.message);
@@ -79,7 +81,7 @@ export default function UserManagement() {
   };
 
   if (!isAdmin) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>Admin access required.</div>;
+    return <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>{t("users.adminRequired")}</div>;
   }
 
   const inputStyle = {
@@ -93,15 +95,15 @@ export default function UserManagement() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0", margin: 0 }}>User Management</h2>
-          <p style={{ fontSize: 11, color: "#475569", fontFamily: mono, margin: "4px 0 0" }}>{users.length} registered users</p>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0", margin: 0 }}>{t("users.title")}</h2>
+          <p style={{ fontSize: 11, color: "#475569", fontFamily: mono, margin: "4px 0 0" }}>{users.length} {t("users.subtitle")}</p>
         </div>
         <button onClick={() => setShowCreate(!showCreate)} style={{
           padding: "9px 18px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.25)",
           background: showCreate ? "rgba(52,211,153,0.12)" : "transparent",
           color: "#34d399", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: sans,
         }}>
-          {showCreate ? "Cancel" : "+ New User"}
+          {showCreate ? t("users.cancel") : t("users.create")}
         </button>
       </div>
 
@@ -116,26 +118,26 @@ export default function UserManagement() {
           background: "linear-gradient(145deg, rgba(6,30,22,0.85), rgba(15,23,42,0.92))",
           border: "1px solid rgba(52,211,153,0.1)",
         }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: "#cbd5e1", marginBottom: 16 }}>Create New User</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "#cbd5e1", marginBottom: 16 }}>{t("users.createTitle")}</h3>
           <form onSubmit={handleCreateUser} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>Name</label>
-              <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} required style={inputStyle} placeholder="Full name" />
+              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>{t("users.name")}</label>
+              <input type="text" value={newUser.name} onChange={e => setNewUser(p => ({ ...p, name: e.target.value }))} required style={inputStyle} placeholder={t("users.placeholder.name")} />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>Email</label>
-              <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} required style={inputStyle} placeholder="user@example.com" />
+              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>{t("users.email")}</label>
+              <input type="email" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} required style={inputStyle} placeholder={t("users.placeholder.email")} />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>Password</label>
-              <input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} required minLength={8} style={inputStyle} placeholder="Min. 8 chars" />
+              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>{t("login.password")}</label>
+              <input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} required minLength={8} style={inputStyle} placeholder={t("users.placeholder.password")} />
             </div>
             <div>
-              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>Role</label>
+              <label style={{ display: "block", fontSize: 10, color: "#475569", fontFamily: mono, marginBottom: 4, textTransform: "uppercase" }}>{t("users.role")}</label>
               <select value={newUser.role} onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))} style={{ ...inputStyle, cursor: "pointer" }}>
-                <option value="viewer">Viewer</option>
-                <option value="operator">Operator</option>
-                <option value="admin">Admin</option>
+                <option value="viewer">{t("role.viewer")}</option>
+                <option value="operator">{t("role.operator")}</option>
+                <option value="admin">{t("role.admin")}</option>
               </select>
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
@@ -143,7 +145,7 @@ export default function UserManagement() {
                 padding: "10px 24px", borderRadius: 10, border: "none",
                 background: "linear-gradient(135deg, #059669, #10b981)", color: "#fff",
                 fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: sans,
-              }}>Create User</button>
+              }}>{t("users.createSubmit")}</button>
             </div>
           </form>
         </div>
@@ -157,11 +159,11 @@ export default function UserManagement() {
       }}>
         {/* Header row */}
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1.2fr", gap: 8, padding: "12px 18px", borderBottom: "1px solid rgba(148,163,184,0.06)", fontSize: 10, fontFamily: mono, color: "#475569", textTransform: "uppercase", letterSpacing: 1 }}>
-          <div>User</div><div>Email</div><div>Role</div><div>Status</div><div>Actions</div>
+          <div>{t("users.name")}</div><div>{t("users.email")}</div><div>{t("users.role")}</div><div>{t("users.status")}</div><div>{t("users.actions")}</div>
         </div>
 
         {loading ? (
-          <div style={{ padding: 30, textAlign: "center", color: "#475569", fontSize: 12 }}>Loading...</div>
+          <div style={{ padding: 30, textAlign: "center", color: "#475569", fontSize: 12 }}>{t("users.loading")}</div>
         ) : (
           users.map(u => {
             const isSelf = u.id === currentUser?.id;
@@ -175,25 +177,25 @@ export default function UserManagement() {
               }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>
-                    {u.name} {isSelf && <span style={{ fontSize: 10, color: "#34d399" }}>(you)</span>}
+                    {u.name} {isSelf && <span style={{ fontSize: 10, color: "#34d399" }}>{t("users.you")}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: "#475569", fontFamily: mono }}>
-                    {u.last_login ? `Last login: ${new Date(u.last_login).toLocaleDateString()}` : "Never logged in"}
+                    {u.last_login ? `${t("users.lastLogin")}: ${new Date(u.last_login).toLocaleDateString()}` : t("users.neverLoggedIn")}
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: "#94a3b8", fontFamily: mono }}>{u.email}</div>
                 <div>
                   {isSelf ? (
-                    <span style={{ padding: "3px 10px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: rb.bg, border: `1px solid ${rb.border}`, color: rb.color }}>{u.role}</span>
+                    <span style={{ padding: "3px 10px", borderRadius: 8, fontSize: 10, fontWeight: 600, background: rb.bg, border: `1px solid ${rb.border}`, color: rb.color }}>{t(`role.${u.role}`)}</span>
                   ) : (
                     <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)} style={{
                       padding: "4px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600,
                       background: rb.bg, border: `1px solid ${rb.border}`, color: rb.color,
                       cursor: "pointer", outline: "none", fontFamily: sans,
                     }}>
-                      <option value="viewer">viewer</option>
-                      <option value="operator">operator</option>
-                      <option value="admin">admin</option>
+                      <option value="viewer">{t("role.viewer")}</option>
+                      <option value="operator">{t("role.operator")}</option>
+                      <option value="admin">{t("role.admin")}</option>
                     </select>
                   )}
                 </div>
@@ -203,7 +205,7 @@ export default function UserManagement() {
                     background: u.active ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.1)",
                     color: u.active ? "#34d399" : "#64748b",
                   }}>
-                    {u.active ? "Active" : "Disabled"}
+                    {u.active ? t("users.active") : t("users.disabled")}
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -214,14 +216,14 @@ export default function UserManagement() {
                         border: "1px solid rgba(148,163,184,0.12)", background: "rgba(15,23,42,0.5)",
                         color: u.active ? "#fbbf24" : "#34d399", fontFamily: sans,
                       }}>
-                        {u.active ? "Disable" : "Enable"}
+                        {u.active ? t("users.disable") : t("users.enable")}
                       </button>
                       <button onClick={() => handleDelete(u.id, u.email)} style={{
                         padding: "5px 10px", borderRadius: 8, fontSize: 10, fontWeight: 600, cursor: "pointer",
                         border: "1px solid rgba(239,68,68,0.15)", background: "rgba(239,68,68,0.05)",
                         color: "#ef4444", fontFamily: sans,
                       }}>
-                        Delete
+                        {t("users.delete")}
                       </button>
                     </>
                   )}
