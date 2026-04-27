@@ -16,6 +16,7 @@
 #include "time_manager.h"
 #include <SD.h>
 #include <SPI.h>
+#include <vector>
 
 static bool sdAvailable = false;
 static unsigned long bufferCount = 0;

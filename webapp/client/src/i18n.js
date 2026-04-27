@@ -14,7 +14,7 @@ export const translations = {
 
     // Dashboard header
     "dash.title": "Greenhouse Monitor",
-    "dash.subtitle": "HAMK Lepaa \u00b7 Strawberry Section \u00b7 IoT Sensor Dashboard",
+    "dash.subtitle": "HAMK Lepaa \u00b7 Tomato Section \u00b7 IoT Sensor Dashboard",
     "dash.footer": "Smart Greenhouse Monitor \u00b7 HAMK Lepaa Thesis \u00b7 Victor Betiku 2026",
 
     // Tabs
@@ -170,7 +170,7 @@ export const translations = {
 
     // Dashboard header
     "dash.title": "Kasvihuonemonitori",
-    "dash.subtitle": "HAMK Lepaa \u00b7 Mansikkaosasto \u00b7 IoT-anturipaneeli",
+    "dash.subtitle": "HAMK Lepaa \u00b7 Tomaattiosasto \u00b7 IoT-anturipaneeli",
     "dash.footer": "Smart Greenhouse Monitor \u00b7 HAMK Lepaa -opinn\u00e4ytety\u00f6 \u00b7 Victor Betiku 2026",
 
     // Tabs

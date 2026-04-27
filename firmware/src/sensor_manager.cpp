@@ -17,6 +17,10 @@ static BH1750 bh1750(BH1750_I2C_ADDR);
 static bool scd30Initialized = false;
 static bool bh1750Initialized = false;
 
+// Dual I2C buses: Wire (bus 0) for SCD30, Wire1 (bus 1) for BH1750
+// Wire1 is provided by the ESP32 Arduino framework (no redeclaration needed)
+// Needed because SCD30 has internal 45kΩ pullups that conflict with BH1750's 10kΩ pullups
+
 /**
  * Read soil moisture from capacitive sensor.
  * Takes multiple samples and averages them to reduce noise.
@@ -31,6 +35,12 @@ static float readSoilMoisture(int* rawOut) {
     int raw = sum / SOIL_SAMPLES;
     *rawOut = raw;
 
+    // ADC range check: raw must be within calibrated sensor range
+    // SOIL_WATER_VALUE = wet (100%), SOIL_AIR_VALUE = dry (0%)
+    if (raw < SOIL_WATER_VALUE || raw > SOIL_AIR_VALUE) {
+        return -1.0f;
+    }
+
     // Map raw value to percentage
     // SOIL_AIR_VALUE = dry (0%), SOIL_WATER_VALUE = wet (100%)
     float percent = map(raw, SOIL_AIR_VALUE, SOIL_WATER_VALUE, 0, 100);
@@ -39,14 +49,18 @@ static float readSoilMoisture(int* rawOut) {
 }
 
 bool SensorManager::init() {
-    // Initialize I2C
+    // Initialize I2C bus 0: SCD30 on GPIO 21 (SDA) / 22 (SCL)
     Wire.begin(I2C_SDA, I2C_SCL);
     Wire.setClock(100000);  // 100 kHz for sensor compatibility
+
+    // Initialize I2C bus 1: BH1750 on GPIO 16 (SDA) / 17 (SCL)
+    Wire1.begin(I2C1_SDA, I2C1_SCL);
+    Wire1.setClock(100000);
     delay(100);
 
     bool anySensor = false;
 
-    // Initialize SCD30
+    // Initialize SCD30 on bus 0
     Serial.print("[Sensor] SCD30 init... ");
     if (scd30.begin(Wire)) {
         scd30.setMeasurementInterval(SCD30_INTERVAL);
@@ -58,9 +72,9 @@ bool SensorManager::init() {
         Serial.println("FAILED (check wiring, addr 0x61)");
     }
 
-    // Initialize BH1750
+    // Initialize BH1750 on bus 1
     Serial.print("[Sensor] BH1750 init... ");
-    if (bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, BH1750_I2C_ADDR, &Wire)) {
+    if (bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, BH1750_I2C_ADDR, &Wire1)) {
         bh1750Initialized = true;
         anySensor = true;
         Serial.println("OK");

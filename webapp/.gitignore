@@ -2,5 +2,10 @@ node_modules/
 client/node_modules/
 client/dist/
 .env
+.env*
+!.env.example
 server/db/greenhouse.db
 *.log
+# Vite build cache
+client/vite.config.js.timestamp-*
+{server

@@ -2,8 +2,8 @@
  * main.cpp - Smart Greenhouse Monitor
  * 
  * HAMK Lepaa Thesis Project
- * "Smart Greenhouse Automation Using IoT and Real-Time
- *  Environmental Sensors for Resource Optimization"
+ * "Smart Greenhouse Monitoring System: Development and
+ *  Validation of a Low-Cost IoT Solution"
  * 
  * Victor Betiku, 2026
  * Supervised by Ari Hietala
@@ -113,7 +113,7 @@ String buildStatusPayload() {
     doc["wifi_rssi"] = WiFiManager::getRSSI();
     doc["wifi_ip"] = WiFiManager::getIP();
     doc["free_heap"] = ESP.getFreeHeap();
-    doc["time_synced"] = TimeManager::isSynced();
+    doc["is_time_synced"] = TimeManager::isSynced() ? 1 : 0;
 
     // SD card status
     JsonObject sd = doc["sd_card"].to<JsonObject>();

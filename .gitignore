@@ -1,0 +1,55 @@
+# ── Deployment & credentials ─────────────────────────────────────────────
+DEPLOY.md
+*.env
+.env*
+!.env.example
+
+# ── Thesis & seminar documents (local only) ───────────────────────────────
+Thesis_Implementation_Section.docx
+Seminar2_SmartGreenhouse_April2026.pptx
+~$*.docx
+~$*.pptx
+*.docx
+*.pptx
+*.pdf
+docs/
+thesis-extracts/
+extract_thesis_content.py
+
+# ── Claude / AI tooling folders ───────────────────────────────────────────
+.claude/
+.claude
+.remote-plugins/
+
+# ── Markdown files (root level only) ─────────────────────────────────────
+/*.md
+!/README.md
+
+# ── Node / npm ────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log
+.pnpm-debug.log
+
+# ── Build output ──────────────────────────────────────────────────────────
+dist/
+build/
+.vite/
+
+# ── OS & editor artifacts ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+*.code-workspace
+PlatformIO.code-workspace
+
+# ── Logs ──────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Database files ────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3

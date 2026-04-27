@@ -4,57 +4,25 @@ import {
   Tooltip, ResponsiveContainer, Legend, ReferenceLine
 } from "recharts";
 import { useLang } from "../context/LangContext";
+import { useAuth } from "../context/AuthContext";
 import LangToggle from "../components/LangToggle";
+import { api } from "../api";
 
-const generateData = (hours = 24) => {
-  const data = [];
-  const now = Date.now();
-  for (let i = hours * 60; i >= 0; i -= 1) {
-    const t = new Date(now - i * 60000);
-    const hour = t.getHours();
-    const df = Math.sin((hour - 6) * Math.PI / 12);
-    data.push({
-      time: t.toISOString(), ts: t.getTime(),
-      timeLabel: t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      dateLabel: t.toLocaleDateString([], { month: "short", day: "numeric" }),
-      co2: Math.round(420 + df * 80 + Math.random() * 30),
-      temperature: +(20 + df * 4 + Math.random() * 1.5).toFixed(1),
-      humidity: +(62 + df * -8 + Math.random() * 3).toFixed(1),
-      light: Math.max(0, Math.round((df + 0.3) * 15000 + Math.random() * 2000)),
-      soil_moisture: +(45 + Math.sin(i / 120) * 5 + Math.random() * 2).toFixed(1),
-      msg_id: `A1B2C3D4-0001-${String(hours * 60 - i).padStart(5, "0")}`,
-    });
-  }
-  return data;
-};
-
-const generateStatus = () => ({
-  device: "LEPAA-GH-01", firmware: "1.0.0",
-  location: "Lepaa Greenhouse Facility - Strawberry Section",
-  uptime_sec: 259200 + Math.floor(Math.random() * 3600),
-  readings: 4320 + Math.floor(Math.random() * 60),
-  publish_failures: Math.floor(Math.random() * 3),
-  wifi_rssi: -45 - Math.floor(Math.random() * 20),
-  free_heap: 180000 + Math.floor(Math.random() * 20000),
-  time_synced: true,
-  sd_card: { available: true, total_mb: 7400, used_mb: 12 + Math.floor(Math.random() * 5), buffered: 0 },
-  last_seen: new Date().toISOString(),
-});
 
 const SENSORS = [
-  { key: "co2", tKey: "sensor.co2", unit: "ppm", color: "#34d399", icon: "🫁", min: 300, max: 1200, optLow: 400, optHigh: 800 },
+  { key: "co2", tKey: "sensor.co2", unit: "ppm", color: "#34d399", icon: "🫁", min: 300, max: 1200, optLow: 800, optHigh: 1200 },
   { key: "temperature", tKey: "sensor.temperature", unit: "°C", color: "#fb923c", icon: "🌡️", min: 10, max: 40, optLow: 18, optHigh: 28 },
-  { key: "humidity", tKey: "sensor.humidity", unit: "%", color: "#38bdf8", icon: "💧", min: 20, max: 100, optLow: 50, optHigh: 75 },
-  { key: "light", tKey: "sensor.light", unit: "lux", color: "#fbbf24", icon: "☀️", min: 0, max: 40000, optLow: 5000, optHigh: 25000 },
+  { key: "humidity", tKey: "sensor.humidity", unit: "%", color: "#38bdf8", icon: "💧", min: 20, max: 100, optLow: 60, optHigh: 80 },
+  { key: "light", tKey: "sensor.light", unit: "lux", color: "#fbbf24", icon: "☀️", min: 0, max: 65000, optLow: 15000, optHigh: 50000 },
   { key: "soil_moisture", tKey: "sensor.soil", unit: "%", color: "#4ade80", icon: "🌱", min: 0, max: 100, optLow: 30, optHigh: 60 },
 ];
 
 const THRESHOLDS = {
-  co2: { low: 300, high: 800, critHigh: 1200 },
+  co2: { low: 300, high: 1200, critHigh: 1500 },
   temperature: { low: 15, high: 30, critHigh: 35, critLow: 5 },
   humidity: { low: 40, high: 80, critHigh: 95 },
   light: { low: 0, high: 30000, critHigh: 45000 },
-  soil_moisture: { low: 25, high: 65, critHigh: 85, critLow: 10 },
+  soil_moisture: { low: 25, high: 70, critHigh: 80, critLow: 10 },
 };
 
 function checkAlerts(reading) {
@@ -87,11 +55,15 @@ function exportCSV(data) {
   if (!data.length) return;
   const h = ["time","msg_id","co2","temperature","humidity","light","soil_moisture"];
   const rows = [h.join(","), ...data.map(r => h.map(k => r[k] ?? "").join(","))];
-  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+  const blob = new Blob(["\uFEFF" + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `greenhouse-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 function LeafBg() {
@@ -131,6 +103,17 @@ function MiniGauge({ value, min, max, optLow, optHigh, color, size = 40 }) {
 
 const PRESETS = [{ label: "1H", hours: 1 }, { label: "6H", hours: 6 }, { label: "24H", hours: 24 }, { label: "3D", hours: 72 }, { label: "7D", hours: 168 }, { label: "30D", hours: 720 }];
 
+function localISO(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function getXAxisKey(diffMs) {
+  const h = diffMs / 3600000;
+  if (h <= 48) return "timeLabel";
+  if (h <= 168) return "dayLabel";
+  return "dateLabel";
+}
+
 const PERIOD_PRESETS = [
   { tKey: "date.today", fn: () => { const s = new Date(); s.setHours(0,0,0,0); return [s, new Date()]; } },
   { tKey: "date.yesterday", fn: () => { const s = new Date(); s.setDate(s.getDate()-1); s.setHours(0,0,0,0); const e = new Date(s); e.setHours(23,59,59,999); return [s, e]; } },
@@ -150,24 +133,25 @@ const sans = "'DM Sans', sans-serif";
 
 function SensorCard({ sensor, value, data, alerts }) {
   const { t } = useLang();
+  const isSoilFault = sensor.key === "soil_moisture" && value === -1;
   const hasAlert = alerts.some(a => a.sensor.key === sensor.key);
   const lvl = alerts.find(a => a.sensor.key === sensor.key)?.level;
   const prev = data.length > 1 ? data[data.length - 2]?.[sensor.key] : value;
   const trend = value > prev ? "↑" : value < prev ? "↓" : "→";
   const tc = trend === "↑" ? "#fb923c" : trend === "↓" ? "#38bdf8" : "#475569";
   return (
-    <div style={{ background: cardBg, border: `1px solid ${lvl === "critical" ? "#ef444480" : lvl === "warning" ? "#fbbf2450" : "rgba(52,211,153,0.1)"}`, borderRadius: 20, padding: "18px 16px 14px", position: "relative", overflow: "hidden", boxShadow: hasAlert ? `0 0 20px ${lvl === "critical" ? "rgba(239,68,68,0.15)" : "rgba(251,191,36,0.1)"}` : "0 4px 24px rgba(0,0,0,0.2)" }}>
+    <div style={{ background: cardBg, border: `1px solid ${isSoilFault ? "#ef4444" : lvl === "critical" ? "#ef444480" : lvl === "warning" ? "#fbbf2450" : "rgba(52,211,153,0.1)"}`, borderRadius: 20, padding: "18px 16px 14px", position: "relative", overflow: "hidden", boxShadow: hasAlert ? `0 0 20px ${lvl === "critical" ? "rgba(239,68,68,0.15)" : "rgba(251,191,36,0.1)"}` : "0 4px 24px rgba(0,0,0,0.2)" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${sensor.color}, transparent)`, opacity: 0.6 }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <span style={{ fontSize: 11, color: "rgba(148,163,184,0.6)", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: mono, fontWeight: 500 }}>{t(sensor.tKey)}</span>
         <MiniGauge value={value || 0} min={sensor.min} max={sensor.max} optLow={sensor.optLow} optHigh={sensor.optHigh} color={sensor.color} />
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2 }}>
-        <span style={{ fontSize: 38, fontWeight: 700, color: "#f1f5f9", fontFamily: sans, lineHeight: 1, letterSpacing: -1 }}>
-          {typeof value === "number" ? (Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1)) : "--"}
+        <span style={{ fontSize: isSoilFault ? 20 : 38, fontWeight: 700, color: isSoilFault ? "#ef4444" : "#f1f5f9", fontFamily: sans, lineHeight: 1, letterSpacing: -1 }}>
+          {isSoilFault ? "Check Sensor" : typeof value === "number" ? (Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1)) : "--"}
         </span>
-        <span style={{ fontSize: 13, color: "#475569", fontWeight: 500, fontFamily: sans }}>{sensor.unit}</span>
-        <span style={{ fontSize: 16, color: tc, marginLeft: "auto", fontWeight: 700 }}>{trend}</span>
+        {!isSoilFault && <span style={{ fontSize: 13, color: "#475569", fontWeight: 500, fontFamily: sans }}>{sensor.unit}</span>}
+        {!isSoilFault && <span style={{ fontSize: 16, color: tc, marginLeft: "auto", fontWeight: 700 }}>{trend}</span>}
       </div>
       <div style={{ fontSize: 9, color: "#475569", fontFamily: mono, marginBottom: 8 }}>{t("sensor.optimal")}: {sensor.optLow}-{sensor.optHigh} {sensor.unit}</div>
       <div style={{ height: 36, marginLeft: -8, marginRight: -8 }}>
@@ -187,19 +171,33 @@ function ChartPanel({ data, selectedSensors }) {
   const { t } = useLang();
   const step = Math.max(1, Math.floor(data.length / 100));
   const sampled = data.filter((_, i) => i % step === 0 || i === data.length - 1);
-  const showDate = data.length > 0 && (new Date(data[data.length - 1]?.time) - new Date(data[0]?.time)) > 86400000;
+  const diffMs = data.length > 1 ? (new Date(data[data.length - 1]?.time) - new Date(data[0]?.time)) : 0;
+  const xKey = getXAxisKey(diffMs);
+  const largeScale = ["co2", "light"];
+  const hasLarge = selectedSensors.some(k => largeScale.includes(k));
+  const hasSmall = selectedSensors.some(k => !largeScale.includes(k));
+  const useDual = hasLarge && hasSmall;
   return (
     <div style={{ background: panelBg, border: panelBorder, borderRadius: 20, padding: 24, boxShadow: "0 4px 32px rgba(0,0,0,0.2)" }}>
       <div style={{ height: 340 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={sampled} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <LineChart data={sampled} margin={{ top: 10, right: useDual ? 50 : 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(52,211,153,0.05)" />
-            <XAxis dataKey={showDate ? "dateLabel" : "timeLabel"} stroke="#1e3a2f" fontSize={10} tickLine={false} interval={Math.max(0, Math.floor(sampled.length / 8))} fontFamily={mono} tick={{ fill: "#475569" }} />
-            <YAxis stroke="#1e3a2f" fontSize={10} tickLine={false} fontFamily={mono} tick={{ fill: "#475569" }} />
+            <XAxis dataKey={xKey} stroke="#1e3a2f" fontSize={10} tickLine={false} interval={Math.max(0, Math.floor(sampled.length / 8))} fontFamily={mono} tick={{ fill: "#475569" }} />
+            {useDual ? (
+              <>
+                <YAxis yAxisId="left" stroke="#1e3a2f" fontSize={10} tickLine={false} fontFamily={mono} tick={{ fill: "#475569" }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#1e3a2f" fontSize={10} tickLine={false} fontFamily={mono} tick={{ fill: "#475569" }} />
+              </>
+            ) : (
+              <YAxis stroke="#1e3a2f" fontSize={10} tickLine={false} fontFamily={mono} tick={{ fill: "#475569" }} />
+            )}
             <Tooltip contentStyle={{ background: "rgba(6,30,22,0.95)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 14, fontSize: 11, fontFamily: mono }} labelStyle={{ color: "#64748b" }} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: sans, paddingTop: 8 }} iconType="circle" iconSize={7} />
             {SENSORS.filter(s => selectedSensors.includes(s.key)).map(s => (
-              <Line key={s.key} type="monotone" dataKey={s.key} name={`${s.icon} ${t(s.tKey)}`} stroke={s.color} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: s.color }} />
+              <Line key={s.key} type="monotone" dataKey={s.key} name={`${s.icon} ${t(s.tKey)}`} stroke={s.color} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: s.color }}
+                {...(useDual ? { yAxisId: largeScale.includes(s.key) ? "left" : "right" } : {})}
+              />
             ))}
           </LineChart>
         </ResponsiveContainer>
@@ -215,7 +213,8 @@ function SensorChart({ sensor, data }) {
   const vals = sampled.map(d => d[sensor.key]).filter(v => v != null);
   const mn = vals.length ? Math.min(...vals) : 0, mx = vals.length ? Math.max(...vals) : 0;
   const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
-  const showDate = data.length > 0 && (new Date(data[data.length - 1]?.time) - new Date(data[0]?.time)) > 86400000;
+  const diffMs = data.length > 1 ? (new Date(data[data.length - 1]?.time) - new Date(data[0]?.time)) : 0;
+  const xKey = getXAxisKey(diffMs);
   return (
     <div style={{ background: panelBg, border: panelBorder, borderRadius: 20, padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -234,7 +233,7 @@ function SensorChart({ sensor, data }) {
           <AreaChart data={sampled} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <defs><linearGradient id={`d-${sensor.key}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={sensor.color} stopOpacity={0.2} /><stop offset="100%" stopColor={sensor.color} stopOpacity={0} /></linearGradient></defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(52,211,153,0.04)" />
-            <XAxis dataKey={showDate ? "dateLabel" : "timeLabel"} stroke="#1e3a2f" fontSize={9} tickLine={false} interval={Math.max(0, Math.floor(sampled.length / 6))} fontFamily={mono} tick={{ fill: "#475569" }} />
+            <XAxis dataKey={xKey} stroke="#1e3a2f" fontSize={9} tickLine={false} interval={Math.max(0, Math.floor(sampled.length / 6))} fontFamily={mono} tick={{ fill: "#475569" }} />
             <YAxis stroke="#1e3a2f" fontSize={9} tickLine={false} fontFamily={mono} tick={{ fill: "#475569" }} domain={["dataMin - 5", "dataMax + 5"]} />
             <Tooltip contentStyle={{ background: "rgba(6,30,22,0.95)", border: `1px solid ${sensor.color}30`, borderRadius: 12, fontSize: 10, fontFamily: mono }} formatter={val => [`${val} ${sensor.unit}`, t(sensor.tKey)]} />
             <ReferenceLine y={sensor.optHigh} stroke={sensor.color} strokeDasharray="4 4" strokeOpacity={0.3} />
@@ -417,8 +416,11 @@ function DateRange({ startDate, endDate, onStart, onEnd, activePreset, onPreset,
 
 export default function GreenhouseDashboard() {
   const { t } = useLang();
+  const { isAdmin, logout } = useAuth();
   const [allData, setAllData] = useState([]);
+  const [latestReading, setLatestReading] = useState({});
   const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState(["co2", "temperature"]);
   const [tab, setTab] = useState("overview");
   const [lastUp, setLastUp] = useState(null);
@@ -426,37 +428,99 @@ export default function GreenhouseDashboard() {
   const [alertHist, setAlertHist] = useState([]);
   const n = new Date();
   const [preset, setPreset] = useState("24H");
+  const presetRef = useRef("24H");
   const [periodPreset, setPeriodPreset] = useState(null);
-  const [sd, setSd] = useState(new Date(n - 24 * 3600000).toISOString().slice(0, 16));
-  const [ed, setEd] = useState(n.toISOString().slice(0, 16));
+  const [sd, setSd] = useState(localISO(new Date(n - 24 * 3600000)));
+  const [ed, setEd] = useState(localISO(n));
 
+  // Load historical sensor data whenever the date range changes
   useEffect(() => {
-    setAllData(generateData(168));
-    setStatus(generateStatus());
-    setLastUp(new Date());
+    setLoading(true);
+    async function loadData() {
+      try {
+        const sdUtc = new Date(sd).toISOString();
+        const edUtc = new Date(ed).toISOString();
+        const result = await api.getSensors({ start: sdUtc, end: edUtc });
+        setAllData((result.data || []).map(d => ({
+          ...d,
+          timeLabel: new Date(d.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          dayLabel: new Date(d.time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }),
+          dateLabel: new Date(d.time).toLocaleDateString([], { month: "short", day: "numeric" }),
+          ts: new Date(d.time).getTime(),
+        })));
+        setLastUp(new Date());
+      } catch (err) {
+        console.error("Failed to load sensor data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [sd, ed]);
+
+  // Poll device status and latest reading every 60 seconds
+  useEffect(() => {
+    async function loadStatus() {
+      try {
+        const result = await api.getStatus();
+        if (result.online) setStatus(result.status);
+      } catch (err) {
+        console.error("Failed to load status:", err);
+      }
+    }
+    async function loadLatest() {
+      try {
+        const result = await api.getLatest();
+        if (result && result.reading && result.reading.time) {
+          const r = result.reading;
+          setLatestReading(r);
+          const point = {
+            ...r,
+            timeLabel: new Date(r.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            dayLabel: new Date(r.time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }),
+            dateLabel: new Date(r.time).toLocaleDateString([], { month: "short", day: "numeric" }),
+            ts: new Date(r.time).getTime(),
+          };
+          setAllData(prev => {
+            if (prev.length && prev[prev.length - 1].ts === point.ts) return prev;
+            return [...prev.slice(-10080), point];
+          });
+          setLastUp(new Date());
+        }
+      } catch (err) {
+        console.error("Failed to load latest reading:", err);
+      }
+    }
+    loadStatus();
+    loadLatest();
     const iv = setInterval(() => {
-      setAllData(prev => {
-        const now = new Date(), h = now.getHours(), df = Math.sin((h - 6) * Math.PI / 12);
-        return [...prev.slice(-10080), { time: now.toISOString(), ts: now.getTime(), timeLabel: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), dateLabel: now.toLocaleDateString([], { month: "short", day: "numeric" }), co2: Math.round(420 + df * 80 + Math.random() * 30), temperature: +(20 + df * 4 + Math.random() * 1.5).toFixed(1), humidity: +(62 + df * -8 + Math.random() * 3).toFixed(1), light: Math.max(0, Math.round((df + 0.3) * 15000 + Math.random() * 2000)), soil_moisture: +(45 + Math.sin(Date.now() / 120000) * 5 + Math.random() * 2).toFixed(1), msg_id: `A1B2C3D4-0001-${String(prev.length + 1).padStart(5, "0")}` }];
-      });
-      setStatus(generateStatus());
-      setLastUp(new Date());
+      loadStatus();
+      loadLatest();
+      if (presetRef.current) {
+        const p = PRESETS.find(x => x.label === presetRef.current);
+        if (p) {
+          const nn = new Date();
+          setEd(localISO(nn));
+          setSd(localISO(new Date(nn - p.hours * 3600000)));
+        }
+      }
     }, 60000);
     return () => clearInterval(iv);
   }, []);
 
+  useEffect(() => { presetRef.current = preset; }, [preset]);
+
   useEffect(() => {
-    if (!allData.length) return;
-    const na = checkAlerts(allData[allData.length - 1]);
+    if (!Object.keys(latestReading).length) return;
+    const na = checkAlerts(latestReading);
     setAlerts(na);
     if (na.length) setAlertHist(p => [...na.map(a => ({ ...a, time: new Date().toLocaleTimeString() })), ...p].slice(0, 50));
-  }, [allData]);
+  }, [latestReading]);
 
   const filtered = allData.filter(d => { const ts = new Date(d.time).getTime(); return ts >= new Date(sd).getTime() && ts <= new Date(ed).getTime(); });
-  const handlePreset = p => { const nn = new Date(); setEd(nn.toISOString().slice(0, 16)); setSd(new Date(nn - p.hours * 3600000).toISOString().slice(0, 16)); setPreset(p.label); setPeriodPreset(null); };
-  const handlePeriod = (p, idx) => { const [s, e] = p.fn(); setSd(s.toISOString().slice(0, 16)); setEd(e.toISOString().slice(0, 16)); setPeriodPreset(idx); setPreset(null); };
+  const handlePreset = p => { const nn = new Date(); setEd(localISO(nn)); setSd(localISO(new Date(nn - p.hours * 3600000))); setPreset(p.label); setPeriodPreset(null); };
+  const handlePeriod = (p, idx) => { const [s, e] = p.fn(); setSd(localISO(s)); setEd(localISO(e)); setPeriodPreset(idx); setPreset(null); };
   const toggle = useCallback(k => setSel(p => p.includes(k) ? (p.length > 1 ? p.filter(x => x !== k) : p) : [...p, k]), []);
-  const latest = allData[allData.length - 1] || {};
 
   const tabs = [
     { key: "overview", label: t("tab.overview"), icon: "📊" },
@@ -487,6 +551,13 @@ export default function GreenhouseDashboard() {
             <button onClick={() => exportCSV(filtered)} style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.25)", background: "rgba(52,211,153,0.08)", color: "#34d399", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: sans, display: "flex", alignItems: "center", gap: 5 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>{t("export.csv")}
             </button>
+            {isAdmin && (
+              <a href="/users" style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(52,211,153,0.25)", background: "rgba(52,211,153,0.08)", color: "#34d399", fontSize: 11, fontWeight: 600, fontFamily: sans, textDecoration: "none", display: "flex", alignItems: "center", gap: 5 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Users
+              </a>
+            )}
+            <button onClick={logout} style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.06)", color: "#ef4444", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: sans }}>{t("signout")}</button>
           </div>
         </div>
         <div style={{ display: "flex", gap: 2, marginTop: 20, borderBottom: "1px solid rgba(52,211,153,0.06)", overflowX: "auto" }}>
@@ -504,7 +575,7 @@ export default function GreenhouseDashboard() {
         {tab === "overview" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 14 }}>
-              {SENSORS.map(s => <SensorCard key={s.key} sensor={s} value={latest[s.key]} data={allData} alerts={alerts} />)}
+              {SENSORS.map(s => <SensorCard key={s.key} sensor={s} value={latestReading[s.key]} data={allData} alerts={alerts} />)}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <DateRange startDate={sd} endDate={ed} onStart={v => { setSd(v); setPreset(null); setPeriodPreset(null); }} onEnd={v => { setEd(v); setPreset(null); setPeriodPreset(null); }} activePreset={preset} onPreset={handlePreset} activePeriod={periodPreset} onPeriod={handlePeriod} />
